@@ -33,7 +33,7 @@
     border-radius: 5px;
     width: 100%;
     max-width: 350px;
-    box-sizing: border-box; /* Added for better sizing consistency */
+    box-sizing: border-box;
   }
   button {
     cursor: pointer;
@@ -86,20 +86,19 @@
   }
   .message {
     margin-bottom: 8px;
-    padding: 5px 8px; /* Added padding to messages */
-    border-radius: 5px; /* Added border-radius to messages */
+    padding: 5px 8px;
+    border-radius: 5px;
   }
   .message.user {
     text-align: right;
     font-weight: 600;
-    background-color: #dcedc8; /* Light green for user */
+    background-color: #dcedc8;
     margin-left: 20%;
   }
   .message.bot {
     text-align: left;
-    /* font-style: italic; */ /* Removed italic for better readability */
-    color: #1b5e20; /* Darker green for bot text */
-    background-color: #f1f8e9; /* Very light green for bot */
+    color: #1b5e20;
+    background-color: #f1f8e9;
     margin-right: 20%;
   }
   .coupon {
@@ -206,321 +205,248 @@
 
 <section id="couponSection">
   <h2>7. 사용 가능한 쿠폰 및 행사 정리</h2>
-  <input type="text" id="couponFilter" placeholder="쿠폰/행사명으로 필터링" oninput="filterCoupons()" />
-  <div id="couponList" style="margin-top: 12px;">
-    <!-- 쿠폰 항목이 JS로 채워짐 -->
-  </div>
+  <input type="text" id="couponFilter" placeholder="쿠폰/행사명 검색" oninput="filterCoupons()" />
+  <div id="couponList" style="margin-top:10px;"></div>
 </section>
 
-<script type="module">
-  import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
-
-  let genAI = null;
+<script src="https://cdn.jsdelivr.net/npm/@google-ai/generativeai@0.2.0/dist/bundle.min.js"></script>
+<script>
+  // 전역 변수
+  let userInfo = {};
+  let balance = 0;
+  let expenses = [];
+  let groupExpenses = [];
   let model = null;
-  let userProvidedApiKey = ""; // 사용자가 입력한 API 키를 저장할 변수
+  let genAI = null;
+  let userProvidedApiKey = null;
 
-  const apiKeyStatusElement = document.getElementById('apiKeyStatus');
-  const chatbotMessages = document.getElementById('chatbotMessages');
+  const apiKeyStatusElement = document.getElementById("apiKeyStatus");
 
+  // 0. API 키 설정 및 AI 초기화
   function setApiKeyAndInitializeAI() {
     const apiKeyInput = document.getElementById('apiKeyInput').value.trim();
     if (!apiKeyInput) {
       apiKeyStatusElement.textContent = "API 키를 입력해주세요.";
       apiKeyStatusElement.style.color = "red";
-      model = null; // 키가 없으면 모델도 null로 설정
-      initializeChatbot(); // 챗봇 메시지 업데이트
+      model = null;
       return;
     }
-
-    userProvidedApiKey = apiKeyInput; // 입력된 키 저장
+    userProvidedApiKey = apiKeyInput;
     apiKeyStatusElement.textContent = "API 키를 설정 중입니다...";
     apiKeyStatusElement.style.color = "orange";
 
     try {
-      genAI = new GoogleGenerativeAI(userProvidedApiKey);
+      genAI = new window.GoogleGenerativeAI(userProvidedApiKey);
       model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
       apiKeyStatusElement.textContent = "API 키가 성공적으로 설정되었고 AI가 초기화되었습니다.";
       apiKeyStatusElement.style.color = "green";
-      console.log("Google AI SDK 초기화 성공 (사용자 제공 키).");
-      // AI 초기화 성공 후 챗봇 초기 메시지 다시 설정
-      initializeChatbot(true);
     } catch (error) {
-      console.error("Google AI SDK 초기화 실패:", error);
       apiKeyStatusElement.textContent = `AI 초기화 실패: ${error.message}. API 키를 확인해주세요.`;
       apiKeyStatusElement.style.color = "red";
-      model = null; // 오류 발생 시 모델 null 처리
-      initializeChatbot(); // 챗봇 메시지 업데이트
+      model = null;
     }
   }
-  window.setApiKeyAndInitializeAI = setApiKeyAndInitializeAI;
 
-
-  // 사용자 정보 저장
-  let userInfo = null;
+  // 1. 사용자 정보 저장
   function saveUserInfo() {
-    const age = Number(document.getElementById('age').value);
-    const salary = Number(document.getElementById('salary').value);
-    const household = Number(document.getElementById('household').value);
-    if (!age || !salary || household < 0) {
-      alert('올바른 사용자 정보를 입력해주세요.');
+    const age = parseInt(document.getElementById("age").value, 10);
+    const salary = parseInt(document.getElementById("salary").value, 10);
+    const household = parseInt(document.getElementById("household").value, 10);
+    const resultEl = document.getElementById("userInfoResult");
+
+    if (isNaN(age) || age <= 0 || isNaN(salary) || salary < 0 || isNaN(household) || household < 0) {
+      resultEl.textContent = "모든 항목을 올바르게 입력해주세요.";
+      resultEl.style.color = "red";
       return;
     }
     userInfo = { age, salary, household };
-    document.getElementById('userInfoResult').textContent = `정보 저장 완료: ${age}세, 월급 ${salary.toLocaleString()}원, 동거인 ${household}명`;
+    resultEl.textContent = "사용자 정보가 저장되었습니다.";
+    resultEl.style.color = "green";
   }
-  window.saveUserInfo = saveUserInfo;
 
-  // 영수증 이미지 미리보기
-  const receiptImageInput = document.getElementById('receiptImage');
-  const receiptPreview = document.getElementById('receiptPreview');
-  receiptImageInput.addEventListener('change', function() {
-    const file = this.files[0];
-    if (!file) {
-      receiptPreview.style.display = 'none';
-      return;
+  // 2. 영수증 사진 미리보기 및 가계부 기록 (AI 판별 모사)
+  const receiptPreview = document.getElementById("receiptPreview");
+  document.getElementById("receiptImage").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        receiptPreview.src = ev.target.result;
+        receiptPreview.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    } else {
+      receiptPreview.style.display = "none";
     }
-    const url = URL.createObjectURL(file);
-    receiptPreview.src = url;
-    receiptPreview.style.display = 'block';
   });
 
-  // 가계부 내역 저장
-  let expenses = [];
   function addReceipt() {
-    const store = document.getElementById('storeName').value.trim();
-    const price = Number(document.getElementById('price').value);
-    const card = document.getElementById('card').value;
-    if (!store || !price || price <= 0) {
-      alert('가게명과 올바른 가격을 입력하세요.');
+    const storeName = document.getElementById("storeName").value.trim();
+    const price = parseInt(document.getElementById("price").value, 10);
+    const card = document.getElementById("card").value;
+    const msgEl = document.getElementById("receiptMessage");
+
+    if (!storeName || isNaN(price) || price <= 0) {
+      msgEl.textContent = "가게명과 가격을 올바르게 입력해주세요.";
+      msgEl.style.color = "red";
       return;
     }
-    expenses.push({ store, price, card });
-    document.getElementById('receiptMessage').textContent = `가계부에 '${store}' ${price.toLocaleString()}원 추가 완료!`;
+
+    expenses.push({ storeName, price, card });
+    msgEl.textContent = `가계부에 "${storeName}" ${price}원, ${card} 결제가 기록되었습니다.`;
+    msgEl.style.color = "green";
+
+    // 초기 소비 내역 업데이트
     updateExpenseTable();
-    clearReceiptInput();
-  }
-  window.addReceipt = addReceipt;
 
-  function clearReceiptInput() {
-    document.getElementById('storeName').value = '';
-    document.getElementById('price').value = '';
-    document.getElementById('card').value = '현금';
-    receiptImageInput.value = '';
-    receiptPreview.style.display = 'none';
+    // 영수증 입력칸 초기화
+    document.getElementById("storeName").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("card").value = "현금";
+    document.getElementById("receiptImage").value = "";
+    receiptPreview.style.display = "none";
   }
 
-  // 소비 내역 테이블 갱신
+  // 3. 보유 금액 갱신 및 소비 내역 보여주기
+  function updateBalance() {
+    const bal = parseInt(document.getElementById("balanceInput").value, 10);
+    const balResultEl = document.getElementById("balanceResult");
+
+    if (isNaN(bal) || bal < 0) {
+      balResultEl.textContent = "보유 금액을 올바르게 입력해주세요.";
+      balResultEl.style.color = "red";
+      return;
+    }
+
+    balance = bal;
+    balResultEl.textContent = `현재 보유 금액: ${balance.toLocaleString()} 원`;
+    balResultEl.style.color = "green";
+
+    updateExpenseTable();
+  }
+
+  // 소비 내역 테이블 업데이트
   function updateExpenseTable() {
-    const tbody = document.getElementById('expenseTableBody');
-    tbody.innerHTML = '';
-    expenses.forEach(({store, price, card}) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${store}</td><td>${price.toLocaleString()}</td><td>${card}</td>`;
+    const tbody = document.getElementById("expenseTableBody");
+    tbody.innerHTML = "";
+
+    expenses.forEach(({storeName, price, card}) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${storeName}</td><td>${price.toLocaleString()}</td><td>${card}</td>`;
       tbody.appendChild(tr);
     });
-    updateBalanceResult();
   }
 
-  // 보유 금액 관리
-  let balance = 0;
-  function updateBalance() {
-    const balInput = Number(document.getElementById('balanceInput').value);
-    if (balInput < 0 || isNaN(balInput)) {
-      alert('유효한 보유 금액을 입력하세요.');
-      return;
-    }
-    balance = balInput;
-    updateBalanceResult();
-  }
-  window.updateBalance = updateBalance;
-
-  function updateBalanceResult() {
-    const totalSpent = expenses.reduce((acc, e) => acc + e.price, 0);
-    const remain = balance - totalSpent;
-    const el = document.getElementById('balanceResult');
-    el.textContent = `현재 보유 금액: ${balance.toLocaleString()}원, 총 지출: ${totalSpent.toLocaleString()}원, 남은 금액: ${remain.toLocaleString()}원`;
-    el.style.color = remain >= 0 ? '#2e7d32' : '#d32f2f';
-  }
-
-  // 유사 사용자 평균 소비 비교 (임의 데이터)
+  // 4. 유사 사용자 평균 소비 비교 (예시 데이터)
   function showComparison() {
-    if (!userInfo) {
-      alert('먼저 사용자 정보를 입력하고 저장하세요.');
+    if (!userInfo.age) {
+      alert("먼저 사용자 정보를 입력해주세요.");
       return;
     }
-    const { age, salary, household } = userInfo;
-    const baseMin = salary * 0.3;
-    const baseMax = salary * 0.5;
-    const adjust = household * 50000;
-    const avgMin = baseMin + adjust;
-    const avgMax = baseMax + adjust;
-    const totalSpent = expenses.reduce((a,e) => a+e.price, 0);
+    const compEl = document.getElementById("comparisonResult");
 
-    const container = document.getElementById('comparisonResult');
-    container.innerHTML = `
-      <p>사용자 월급: ${salary.toLocaleString()}원, 동거인 수: ${household}명</p>
-      <p>유사 사용자 평균 월 소비: ${avgMin.toLocaleString()}원 ~ ${avgMax.toLocaleString()}원</p>
-      <p>내 총 지출: <strong>${totalSpent.toLocaleString()}원</strong></p>
-      <p style="color:${totalSpent > avgMax ? '#d32f2f' : '#2e7d32'}">
-        ${totalSpent > avgMax ? '평균보다 지출이 많아요. 소비를 줄여보세요.' : '소비가 평균 범위 내에 있습니다.'}
-      </p>
+    // 임의 유사 그룹 소비 평균 데이터 (실제로는 AI나 DB 연동 필요)
+    const avgSpending = {
+      ageGroup: `${Math.floor(userInfo.age/10)*10}대`,
+      avgMonthlyExpense: 1200000,
+      userSalary: userInfo.salary,
+      userMonthlyExpense: expenses.reduce((acc,v) => acc + v.price, 0)
+    };
+
+    compEl.innerHTML = `
+      <p>귀하의 나이대: <strong>${avgSpending.ageGroup}</strong></p>
+      <p>유사 사용자 평균 월 소비: <strong>${avgSpending.avgMonthlyExpense.toLocaleString()} 원</strong></p>
+      <p>귀하의 월급: <strong>${avgSpending.userSalary.toLocaleString()} 원</strong></p>
+      <p>귀하의 이번달 소비: <strong>${avgSpending.userMonthlyExpense.toLocaleString()} 원</strong></p>
     `;
   }
-  window.showComparison = showComparison;
 
-  // 그룹 소비 공유
-  let groupExpenses = [];
+  // 5. 그룹 소비 추가 및 리스트
   function addGroupExpense() {
-    const name = document.getElementById('groupName').value.trim();
-    const expense = Number(document.getElementById('groupExpense').value);
-    if (!name || isNaN(expense) || expense < 0) {
-      alert('그룹 이름과 유효한 금액을 입력하세요.');
+    const groupName = document.getElementById("groupName").value.trim();
+    const groupExpense = parseInt(document.getElementById("groupExpense").value, 10);
+    if (!groupName || isNaN(groupExpense) || groupExpense < 0) {
+      alert("그룹 이름과 소비 금액을 올바르게 입력해주세요.");
       return;
     }
-    groupExpenses.push({ name, expense });
+    groupExpenses.push({ groupName, groupExpense });
+    document.getElementById("groupName").value = "";
+    document.getElementById("groupExpense").value = "";
     updateGroupExpenseList();
-    document.getElementById('groupName').value = '';
-    document.getElementById('groupExpense').value = '';
   }
-  window.addGroupExpense = addGroupExpense;
 
   function updateGroupExpenseList() {
-    const list = document.getElementById('groupExpenseList');
-    list.innerHTML = '';
-    groupExpenses.forEach(({name, expense}) => {
-      const li = document.createElement('li');
-      li.textContent = `${name} 그룹: ${expense.toLocaleString()}원`;
-      list.appendChild(li);
+    const ul = document.getElementById("groupExpenseList");
+    ul.innerHTML = "";
+    groupExpenses.forEach(({groupName, groupExpense}, idx) => {
+      const li = document.createElement("li");
+      li.textContent = `${groupName}: ${groupExpense.toLocaleString()} 원`;
+      ul.appendChild(li);
     });
   }
 
-  // 챗봇 (Gemini API)
-  function appendChatMessage(sender, text) {
-    const div = document.createElement('div');
-    div.classList.add('message', sender);
-    div.textContent = text;
-    chatbotMessages.appendChild(div);
-    chatbotMessages.scrollTop = chatbotMessages.scrollHeight; // Auto-scroll to bottom
-    return div;
-  }
-
-  async function getGeminiChatReply(userMessage) {
-    if (!model) {
-        if (!userProvidedApiKey) {
-            return "죄송합니다. 챗봇을 사용하려면 먼저 상단의 'Google AI API 키 설정' 섹션에서 API 키를 입력하고 설정해주세요.";
-        }
-        return "죄송합니다, AI 모델이 아직 준비되지 않았습니다. API 키 설정을 다시 시도하거나, 입력한 키가 유효한지 확인해주세요.";
-    }
-    // Construct a more detailed prompt for better AI guidance
-    const prompt = `
-        You are a friendly and helpful AI financial advisor for a household budgeting app.
-        Your goal is to assist users with their financial questions and provide tips on using the app.
-        The app has the following features:
-        1.  User Info: Users can input their age, salary, and household size.
-        2.  Receipt Upload: Users can upload receipt images (currently simulated) and manually enter store name, price, and payment card to log expenses.
-        3.  Balance Management: Users can set their current balance and see their total spending and remaining amount.
-        4.  Comparison: Users can compare their spending with an estimated average for similar users.
-        5.  Group Expenses: Users can share and track group expenses.
-        6.  Chatbot (this is you!): Users can ask financial questions.
-        7.  Coupons: A list of available coupons and deals.
-
-        User's question: "${userMessage}"
-
-        Please respond in Korean. Be concise and helpful.
-        If the question is about app functionality, guide them based on the features listed above.
-        For example:
-        - If asked about logging expenses: "영수증 정보를 '2. 영수증 사진 업로드 및 AI 판별' 섹션에 입력하고 '가계부에 기록' 버튼을 누르시면 됩니다."
-        - If asked about checking spending: "소비 내역은 '3. 보유 금액 및 소비 내역 관리' 섹션의 표에서 확인하실 수 있어요."
-        - If asked about saving money: Offer general tips like tracking expenses, reviewing subscriptions, setting a budget, etc.
-        - If asked about coupons: "앱 하단의 '7. 사용 가능한 쿠폰 및 행사 정리' 섹션에서 확인해보세요."
-    `;
-    try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        return text;
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        if (error.message && error.message.toLowerCase().includes("api key not valid")) {
-            apiKeyStatusElement.textContent = "API 키가 유효하지 않습니다. 다시 확인해주세요.";
-            apiKeyStatusElement.style.color = "red";
-            model = null; // 키가 유효하지 않으면 모델 비활성화
-            return "죄송합니다. API 키가 유효하지 않습니다. 상단에서 API 키를 다시 설정해주세요.";
-        }
-        return "죄송합니다, AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-    }
-  }
+  // 6. 챗봇 기능 (Google Gemini API 호출)
+  const chatbotMessages = document.getElementById("chatbotMessages");
 
   async function sendChat() {
-    const input = document.getElementById('chatInput');
-    const userText = input.value.trim();
-    if (!userText) return;
+    const input = document.getElementById("chatInput");
+    const text = input.value.trim();
+    if (!text) return;
 
-    appendChatMessage('user', userText);
-    input.value = '';
+    appendMessage("user", text);
+    input.value = "";
 
     if (!model) {
-        const noApiKeyReply = await getGeminiChatReply(userText); // This will return the "API key needed" message
-        appendChatMessage('bot', noApiKeyReply);
-        return;
+      appendMessage("bot", "API 키가 설정되어 있지 않습니다. 먼저 API 키를 입력하고 초기화하세요.");
+      return;
     }
-
-    const thinkingMessageElement = appendChatMessage('bot', 'AI가 생각 중입니다...');
 
     try {
-        const botReply = await getGeminiChatReply(userText);
-        thinkingMessageElement.textContent = botReply;
+      const response = await model.chat.completions.create({
+        messages: [{ role: "user", content: text }]
+      });
+      const botReply = response.choices[0].message.content;
+      appendMessage("bot", botReply);
     } catch (error) {
-        thinkingMessageElement.textContent = 'AI 응답 처리 중 문제가 발생했습니다.';
+      appendMessage("bot", "AI 응답 중 오류가 발생했습니다: " + error.message);
     }
+  }
+
+  function appendMessage(role, text) {
+    const div = document.createElement("div");
+    div.classList.add("message", role);
+    div.textContent = text;
+    chatbotMessages.appendChild(div);
     chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
   }
-  window.sendChat = sendChat;
-  
-  // Initialize Chatbot with a greeting
-  function initializeChatbot(aiReady = false) {
-    // Clear previous messages first
-    chatbotMessages.innerHTML = '';
-    if (aiReady && model) {
-      appendChatMessage('bot', '안녕하세요! AI 가계부 상담사입니다. 재정 관련 질문이나 앱 사용법에 대해 물어보세요. (예: 절약 팁 알려줘)');
-    } else {
-      appendChatMessage('bot', 'AI 챗봇을 사용하려면 먼저 상단에서 Google AI API 키를 설정해주세요.');
-    }
-  }
 
-
-  // 쿠폰/행사 리스트 + 필터링
+  // 7. 쿠폰/행사 목록과 필터
   const coupons = [
-    {name:'스타벅스 10% 할인 쿠폰', description:'2025년 12월 31일까지 사용 가능, 음료 전 품목 10% 할인'},
-    {name:'롯데마트 주말 행사', description:'주말 20% 할인 행사, 2025년 6월 1일 ~ 6월 7일'},
-    {name:'신한카드 캐시백 이벤트', description:'5월 한달간 신한카드로 결제 시 3% 캐시백'},
-    {name:'삼성카드 영화 할인', description:'영화 예매 시 최대 5천원 할인, 월 2회 사용 가능'},
-    {name:'쿠팡 로켓배송 쿠폰', description:'첫 주문 시 무료 배송 쿠폰 제공'},
+    {name: "5% 청년할인 쿠폰", desc: "만 19~29세 대상, 5% 즉시 할인"},
+    {name: "10% 첫 결제 할인", desc: "첫 결제 고객에게 10% 할인 적용"},
+    {name: "여름 맞이 특별 행사", desc: "7월 한달간 특정 카드 결제 시 적립금 추가 지급"},
+    {name: "친환경 장바구니 할인", desc: "재활용 장바구니 사용 시 1,000원 할인"},
   ];
-  function displayCoupons(filter = '') {
-    const listDiv = document.getElementById('couponList');
-    listDiv.innerHTML = '';
-    const filtered = coupons.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()) || c.description.toLowerCase().includes(filter.toLowerCase()));
+
+  function filterCoupons() {
+    const filter = document.getElementById("couponFilter").value.trim().toLowerCase();
+    const listDiv = document.getElementById("couponList");
+    listDiv.innerHTML = "";
+    const filtered = coupons.filter(c => c.name.toLowerCase().includes(filter) || c.desc.toLowerCase().includes(filter));
     if (filtered.length === 0) {
-      listDiv.textContent = '검색 결과가 없습니다.';
+      listDiv.textContent = "검색 결과가 없습니다.";
       return;
     }
     filtered.forEach(c => {
-      const div = document.createElement('div');
-      div.classList.add('coupon');
-      div.innerHTML = `<strong>${c.name}</strong><br><small>${c.description}</small>`;
+      const div = document.createElement("div");
+      div.classList.add("coupon");
+      div.innerHTML = `<strong>${c.name}</strong><br/><small>${c.desc}</small>`;
       listDiv.appendChild(div);
     });
   }
-  function filterCoupons() {
-    const val = document.getElementById('couponFilter').value.trim();
-    displayCoupons(val);
-  }
-  window.filterCoupons = filterCoupons;
 
-  // Initial calls
-  displayCoupons();
-  initializeChatbot(); // 페이지 로드 시 초기 챗봇 메시지 설정
+  // 초기화
+  filterCoupons();
 
 </script>
 
