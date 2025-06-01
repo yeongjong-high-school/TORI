@@ -1,147 +1,104 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI 가계부 - 영수증 사진 기반 스마트 소비관리</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Shooter Game</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      line-height: 1.8;
-      margin: 0;
-      padding: 0;
-      background: #f9f9f9;
-      color: #333;
-    }
-    header {
-      background-color: #0074D9;
-      color: white;
-      padding: 40px 20px;
-      text-align: center;
-    }
-    section {
-      padding: 40px 20px;
-      max-width: 900px;
-      margin: auto;
-    }
-    h1, h2, h3 {
-      color: #0074D9;
-    }
-    .feature, .compare, .tech, .goal, .footer {
-      margin-bottom: 50px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      padding: 12px;
-      border: 1px solid #ccc;
-      text-align: left;
-    }
-    footer {
-      background-color: #f1f1f1;
-      padding: 20px;
-      text-align: center;
-      color: #555;
-    }
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-  <header>
-    <h1>📸 AI 가계부</h1>
-    <p>영수증 사진 한 장으로 자동으로 관리되는 스마트 소비 분석 시스템</p>
-    <p><strong>SDGs 목표 8: 지속 가능한 경제 성장과 생산적인 고용을 위한 기술</strong></p>
-  </header>
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-  <section class="intro">
-    <h2>서비스 개요</h2>
-    <p>
-      AI 가계부는 사용자의 일상 속 소비를 쉽고 빠르게 관리할 수 있도록 돕는 스마트 가계부 서비스입니다. 영수증을 사진으로 찍기만 하면, 
-      인공지능이 자동으로 금액, 상호명, 결제수단을 인식하고 가계부에 반영합니다. 더 나아가 유사한 사용자들과 소비 패턴을 비교하고, 
-      절약을 위한 피드백을 제공함으로써 지속 가능한 소비 습관 형성을 지원합니다.
-    </p>
-  </section>
+    // Light
+    let light = new THREE.HemisphereLight(0xffffff, 0x444444);
+    light.position.set(0, 200, 0);
+    scene.add(light);
 
-  <section class="feature">
-    <h2>주요 기능</h2>
-    <ul>
-      <li><strong>1. 카메라 스캔을 통한 자동 등록:</strong> 영수증을 찍으면 AI가 자동 분석하여 지출 내역에 반영합니다.</li>
-      <li><strong>2. 사용자 정보 기반 분석:</strong> 연령, 수입, 동거인 등 입력된 정보를 기반으로 소비 성향 분석.</li>
-      <li><strong>3. 잔액 자동 계산:</strong> 소비할 때마다 보유 금액이 자동으로 차감되어 실시간 자산 확인 가능.</li>
-      <li><strong>4. 사용자 비교 시스템:</strong> 내 소비를 유사한 조건의 사용자 평균 소비와 비교할 수 있습니다.</li>
-      <li><strong>5. 그룹 공유 기능:</strong> 가족이나 친구와 그룹을 만들어 서로 소비 데이터를 공유하고 경쟁 가능.</li>
-      <li><strong>6. 챗봇 기반 소비 상담:</strong> AI 챗봇이 소비 피드백을 제공하고 절약 팁을 안내합니다.</li>
-      <li><strong>7. 할인 정보 제공:</strong> 사용자 소비 패턴에 따라 맞춤형 쿠폰 및 행사 정보를 추천합니다.</li>
-    </ul>
-  </section>
+    // Floor
+    let floorGeometry = new THREE.PlaneGeometry(1000, 1000);
+    let floorMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    let floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
 
-  <section class="compare">
-    <h2>기존 가계부 앱과의 차이점</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>기존 가계부</th>
-          <th>AI 가계부</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>수동 입력 필요</td>
-          <td>AI가 영수증 인식 후 자동 입력</td>
-        </tr>
-        <tr>
-          <td>개인 소비만 분석</td>
-          <td>유사 사용자와 소비 패턴 비교 가능</td>
-        </tr>
-        <tr>
-          <td>소비 기록 중심</td>
-          <td>챗봇 상담 및 절약 피드백 제공</td>
-        </tr>
-        <tr>
-          <td>정적인 UI</td>
-          <td>실시간 데이터 기반 대시보드</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
+    // Player Controls
+    const controls = new PointerLockControls(camera, document.body);
+    document.body.addEventListener('click', () => controls.lock());
+    scene.add(controls.getObject());
 
-  <section class="goal">
-    <h2>목표 및 철학</h2>
-    <p>
-      단순히 지출을 기록하는 것을 넘어서, AI 가계부는 사용자가 <strong>자신의 소비 성향을 인식</strong>하고 
-      <strong>보다 현명한 금융 결정을 내릴 수 있도록</strong> 돕습니다.  
-      또한, 사회 전반에 걸쳐 금융 문해력과 재정 건강을 향상시키며, 지속 가능한 경제 시스템을 구축하는 데 기여합니다.
-    </p>
-  </section>
+    // Basic Movement
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.code] = true);
+    document.addEventListener('keyup', e => keys[e.code] = false);
 
-  <section class="tech">
-    <h2>사용 기술 (예시)</h2>
-    <ul>
-      <li><strong>OCR 기술:</strong> Tesseract, Google Vision API</li>
-      <li><strong>AI/ML 분석:</strong> PyTorch, TensorFlow, Scikit-learn</li>
-      <li><strong>백엔드:</strong> Python (FastAPI), Node.js</li>
-      <li><strong>프론트엔드:</strong> React, Flutter</li>
-      <li><strong>데이터베이스:</strong> MongoDB, Firebase</li>
-      <li><strong>클라우드/인프라:</strong> AWS, Google Cloud Platform</li>
-    </ul>
-  </section>
+    // Enemies
+    let enemies = [];
+    const enemyGeo = new THREE.BoxGeometry(1, 1, 1);
+    const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
 
-  <section class="future">
-    <h2>향후 기능 계획</h2>
-    <ul>
-      <li>신용카드, 은행 연동 자동 지출 추적</li>
-      <li>월간 소비 리포트 PDF 자동 생성</li>
-      <li>목표 예산 도달 시 보상형 알림 시스템</li>
-      <li>지출 습관 개선 미션 및 게임 요소 도입</li>
-    </ul>
-  </section>
+    function spawnEnemy() {
+      const mesh = new THREE.Mesh(enemyGeo, enemyMat);
+      mesh.position.set(Math.random() * 100 - 50, 0.5, Math.random() * 100 - 50);
+      scene.add(mesh);
+      enemies.push(mesh);
+    }
 
-  <footer>
-    <p>© 2025 AI 가계부 | 지속 가능한 소비를 위한 당신의 AI 파트너</p>
-  </footer>
+    setInterval(spawnEnemy, 2000);
 
+    // Shooting
+    window.addEventListener('click', () => {
+      if (!controls.isLocked) return;
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2(), camera);
+      const hits = ray.intersectObjects(enemies);
+      if (hits.length > 0) {
+        scene.remove(hits[0].object);
+        enemies = enemies.filter(e => e !== hits[0].object);
+      }
+    });
+
+    // Animate
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (controls.isLocked) {
+        direction.z = Number(keys['KeyW']) - Number(keys['KeyS']);
+        direction.x = Number(keys['KeyD']) - Number(keys['KeyA']);
+        direction.normalize();
+
+        const moveSpeed = 0.1;
+        velocity.x -= velocity.x * 0.1;
+        velocity.z -= velocity.z * 0.1;
+        velocity.x += direction.x * moveSpeed;
+        velocity.z += direction.z * moveSpeed;
+
+        controls.moveRight(velocity.x);
+        controls.moveForward(velocity.z);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
