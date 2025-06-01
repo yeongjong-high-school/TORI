@@ -1,104 +1,499 @@
+AIzaSyBKOiNM37OW2gqdpUGF1t4Zhbk29qagjtw
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Shooter Game</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    canvas { display: block; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI 가계부 앱 - 프로토타입 (Gemini API 통합)</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f4f8;
+    margin: 0; padding: 20px;
+    color: #222;
+  }
+  h1, h2, h3 {
+    color: #2e7d32;
+  }
+  section {
+    background: white;
+    border-radius: 10px;
+    padding: 20px 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,128,0,0.15);
+  }
+  label {
+    display: block;
+    margin: 8px 0 4px;
+    font-weight: 600;
+  }
+  input, select, button, textarea {
+    font-size: 1rem;
+    padding: 8px;
+    border: 1.5px solid #4caf50;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 350px;
+    box-sizing: border-box; /* Added for better sizing consistency */
+  }
+  button {
+    cursor: pointer;
+    background: #4caf50;
+    color: white;
+    margin-top: 12px;
+    border: none;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #388e3c;
+  }
+  #receiptPreview {
+    max-width: 250px;
+    margin-top: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .flex-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .flex-col {
+    flex: 1;
+    min-width: 280px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 15px;
+  }
+  th, td {
+    border: 1px solid #a5d6a7;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background: #c8e6c9;
+  }
+  #chatbotMessages {
+    height: 150px;
+    overflow-y: auto;
+    border: 1.5px solid #4caf50;
+    border-radius: 6px;
+    padding: 10px;
+    background: #e8f5e9;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+  }
+  .message {
+    margin-bottom: 8px;
+    padding: 5px 8px; /* Added padding to messages */
+    border-radius: 5px; /* Added border-radius to messages */
+  }
+  .message.user {
+    text-align: right;
+    font-weight: 600;
+    background-color: #dcedc8; /* Light green for user */
+    margin-left: 20%;
+  }
+  .message.bot {
+    text-align: left;
+    /* font-style: italic; */ /* Removed italic for better readability */
+    color: #1b5e20; /* Darker green for bot text */
+    background-color: #f1f8e9; /* Very light green for bot */
+    margin-right: 20%;
+  }
+  .coupon {
+    background: #dcedc8;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  @media(max-width: 720px) {
+    .flex-row {
+      flex-direction: column;
+    }
+    .message.user { margin-left: 10%; }
+    .message.bot { margin-right: 10%; }
+  }
+</style>
 </head>
 <body>
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    let renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<h1>AI 가계부 앱 프로토타입 (Gemini API 통합)</h1>
 
-    // Light
-    let light = new THREE.HemisphereLight(0xffffff, 0x444444);
-    light.position.set(0, 200, 0);
-    scene.add(light);
+<section id="userInfoSection">
+  <h2>1. 사용자 정보 입력</h2>
+  <label for="age">연령</label>
+  <input type="number" id="age" min="1" max="120" placeholder="예: 30" />
+  <label for="salary">월급 (원)</label>
+  <input type="number" id="salary" min="0" placeholder="예: 3000000" />
+  <label for="household">동거인 수</label>
+  <input type="number" id="household" min="0" placeholder="예: 2" />
+  <button onclick="saveUserInfo()">정보 저장</button>
+  <p id="userInfoResult" style="color:green; margin-top:10px;"></p>
+</section>
 
-    // Floor
-    let floorGeometry = new THREE.PlaneGeometry(1000, 1000);
-    let floorMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    let floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+<section id="receiptSection">
+  <h2>2. 영수증 사진 업로드 및 AI 판별</h2>
+  <input type="file" accept="image/*" id="receiptImage" />
+  <img id="receiptPreview" alt="영수증 미리보기" style="display:none;" />
+  <div style="margin-top:12px;">
+    <label for="storeName">가게명 (AI 판별 결과 흉내)</label>
+    <input type="text" id="storeName" placeholder="예: 스타벅스" />
+    <label for="price">가격 (원)</label>
+    <input type="number" id="price" min="0" placeholder="예: 5500" />
+    <label for="card">결제 카드</label>
+    <select id="card">
+      <option value="현금">현금</option>
+      <option value="신한카드">신한카드</option>
+      <option value="삼성카드">삼성카드</option>
+      <option value="국민카드">국민카드</option>
+    </select>
+  </div>
+  <button onclick="addReceipt()">가계부에 기록</button>
+  <p id="receiptMessage" style="color:green; margin-top:10px;"></p>
+</section>
 
-    // Player Controls
-    const controls = new PointerLockControls(camera, document.body);
-    document.body.addEventListener('click', () => controls.lock());
-    scene.add(controls.getObject());
+<section id="balanceSection">
+  <h2>3. 보유 금액 및 소비 내역 관리</h2>
+  <label for="balanceInput">현재 보유 금액 (원)</label>
+  <input type="number" id="balanceInput" min="0" placeholder="예: 1000000" />
+  <button onclick="updateBalance()">보유 금액 갱신</button>
+  <p id="balanceResult" style="margin-top:10px; font-weight:600;"></p>
+  <h3>소비 내역</h3>
+  <table>
+    <thead>
+      <tr><th>가게명</th><th>가격(원)</th><th>결제카드</th></tr>
+    </thead>
+    <tbody id="expenseTableBody">
+    </tbody>
+  </table>
+</section>
 
-    // Basic Movement
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    const keys = {};
-    document.addEventListener('keydown', e => keys[e.code] = true);
-    document.addEventListener('keyup', e => keys[e.code] = false);
+<section id="comparisonSection">
+  <h2>4. 유사 사용자 평균 소비 비교</h2>
+  <p>입력한 사용자 정보를 바탕으로 유사 사용자 그룹의 평균 소비를 임의 데이터로 비교합니다.</p>
+  <button onclick="showComparison()">비교 결과 보기</button>
+  <div id="comparisonResult" style="margin-top: 15px;"></div>
+</section>
 
-    // Enemies
-    let enemies = [];
-    const enemyGeo = new THREE.BoxGeometry(1, 1, 1);
-    const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+<section id="groupSection">
+  <h2>5. 그룹 소비량 공유</h2>
+  <label for="groupName">그룹 이름</label>
+  <input type="text" id="groupName" placeholder="예: 가족" />
+  <label for="groupExpense">그룹 내 추가 소비 금액 (원)</label>
+  <input type="number" id="groupExpense" min="0" placeholder="예: 200000" />
+  <button onclick="addGroupExpense()">그룹 소비 추가</button>
+  <h3>그룹 소비 내역</h3>
+  <ul id="groupExpenseList"></ul>
+</section>
 
-    function spawnEnemy() {
-      const mesh = new THREE.Mesh(enemyGeo, enemyMat);
-      mesh.position.set(Math.random() * 100 - 50, 0.5, Math.random() * 100 - 50);
-      scene.add(mesh);
-      enemies.push(mesh);
-    }
+<section id="chatbotSection">
+  <h2>6. 챗봇 기반 가계부 상담사 (AI Powered)</h2>
+  <div id="chatbotMessages"></div>
+  <input type="text" id="chatInput" placeholder="질문을 입력하세요. 예: 절약 팁 알려줘" />
+  <button onclick="sendChat()">전송</button>
+</section>
 
-    setInterval(spawnEnemy, 2000);
+<section id="couponSection">
+  <h2>7. 사용 가능한 쿠폰 및 행사 정리</h2>
+  <input type="text" id="couponFilter" placeholder="쿠폰/행사명으로 필터링" oninput="filterCoupons()" />
+  <div id="couponList" style="margin-top: 12px;">
+    <!-- 쿠폰 항목이 JS로 채워짐 -->
+  </div>
+</section>
 
-    // Shooting
-    window.addEventListener('click', () => {
-      if (!controls.isLocked) return;
-      const ray = new THREE.Raycaster();
-      ray.setFromCamera(new THREE.Vector2(), camera);
-      const hits = ray.intersectObjects(enemies);
-      if (hits.length > 0) {
-        scene.remove(hits[0].object);
-        enemies = enemies.filter(e => e !== hits[0].object);
+<script type="module">
+  import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+  // -------------------------------------------------------------------------
+  // IMPORTANT: Replace with your own Google AI API Key
+  // Google AI Studio (https://aistudio.google.com/)에서 API 키를 발급받아 아래에 넣어주세요.
+  const API_KEY = "AIzaSyBKOiNM37OW2gqdpUGF1t4Zhbk29qagjtw"; // <--- THIS IS A PLACEHOLDER KEY. REPLACE IT!
+  // -------------------------------------------------------------------------
+
+  let genAI;
+  let model; // Declare model here so it's in scope
+
+  // API Key Check and Initialization
+  const PLACEHOLDER_API_KEY_VALUE = "AIzaSyBKOiNM37OW2gqdpUGF1t4Zhbk29qagjtw"; // Specific placeholder
+  if (API_KEY === PLACEHOLDER_API_KEY_VALUE || API_KEY.trim() === "" || API_KEY.toLowerCase().includes("your_api_key") || API_KEY.length < 30) {
+      const warningMessage = "경고: Google AI API 키가 설정되지 않았거나 유효하지 않은 키입니다. 챗봇 기능이 동작하지 않을 수 있습니다. 코드 내의 `API_KEY` 변수를 실제 API 키로 교체해주세요.";
+      console.warn(warningMessage);
+      alert(warningMessage); // Make it more prominent
+      // model will remain undefined or null
+  } else {
+      try {
+          genAI = new GoogleGenerativeAI(API_KEY);
+          model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+          console.log("Google AI SDK 초기화 성공. (실제 API 키가 사용된 경우)");
+      } catch (error) {
+          console.error("Google AI SDK 초기화 실패:", error);
+          alert("Google AI SDK를 초기화하는 데 문제가 발생했습니다. API 키를 확인하거나 콘솔 로그를 참조하세요. 챗봇 기능 사용이 어려울 수 있습니다.");
+          // model will remain undefined or be null if an error occurs during assignment
       }
-    });
+  }
 
-    // Animate
-    function animate() {
-      requestAnimationFrame(animate);
 
-      if (controls.isLocked) {
-        direction.z = Number(keys['KeyW']) - Number(keys['KeyS']);
-        direction.x = Number(keys['KeyD']) - Number(keys['KeyA']);
-        direction.normalize();
-
-        const moveSpeed = 0.1;
-        velocity.x -= velocity.x * 0.1;
-        velocity.z -= velocity.z * 0.1;
-        velocity.x += direction.x * moveSpeed;
-        velocity.z += direction.z * moveSpeed;
-
-        controls.moveRight(velocity.x);
-        controls.moveForward(velocity.z);
-      }
-
-      renderer.render(scene, camera);
+  // 사용자 정보 저장
+  let userInfo = null;
+  function saveUserInfo() {
+    const age = Number(document.getElementById('age').value);
+    const salary = Number(document.getElementById('salary').value);
+    const household = Number(document.getElementById('household').value);
+    if (!age || !salary || household < 0) {
+      alert('올바른 사용자 정보를 입력해주세요.');
+      return;
     }
+    userInfo = { age, salary, household };
+    document.getElementById('userInfoResult').textContent = `정보 저장 완료: ${age}세, 월급 ${salary.toLocaleString()}원, 동거인 ${household}명`;
+  }
+  window.saveUserInfo = saveUserInfo; // Make available to inline onclick
 
-    animate();
+  // 영수증 이미지 미리보기
+  const receiptImageInput = document.getElementById('receiptImage');
+  const receiptPreview = document.getElementById('receiptPreview');
+  receiptImageInput.addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) {
+      receiptPreview.style.display = 'none';
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    receiptPreview.src = url;
+    receiptPreview.style.display = 'block';
+  });
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+  // 가계부 내역 저장
+  let expenses = [];
+  function addReceipt() {
+    const store = document.getElementById('storeName').value.trim();
+    const price = Number(document.getElementById('price').value);
+    const card = document.getElementById('card').value;
+    if (!store || !price || price <= 0) {
+      alert('가게명과 올바른 가격을 입력하세요.');
+      return;
+    }
+    expenses.push({ store, price, card });
+    document.getElementById('receiptMessage').textContent = `가계부에 '${store}' ${price.toLocaleString()}원 추가 완료!`;
+    updateExpenseTable();
+    clearReceiptInput();
+  }
+  window.addReceipt = addReceipt;
+
+  function clearReceiptInput() {
+    document.getElementById('storeName').value = '';
+    document.getElementById('price').value = '';
+    document.getElementById('card').value = '현금';
+    receiptImageInput.value = '';
+    receiptPreview.style.display = 'none';
+  }
+
+  // 소비 내역 테이블 갱신
+  function updateExpenseTable() {
+    const tbody = document.getElementById('expenseTableBody');
+    tbody.innerHTML = '';
+    expenses.forEach(({store, price, card}) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${store}</td><td>${price.toLocaleString()}</td><td>${card}</td>`;
+      tbody.appendChild(tr);
     });
-  </script>
+    updateBalanceResult();
+  }
+
+  // 보유 금액 관리
+  let balance = 0;
+  function updateBalance() {
+    const balInput = Number(document.getElementById('balanceInput').value);
+    if (balInput < 0 || isNaN(balInput)) {
+      alert('유효한 보유 금액을 입력하세요.');
+      return;
+    }
+    balance = balInput;
+    updateBalanceResult();
+  }
+  window.updateBalance = updateBalance;
+
+  function updateBalanceResult() {
+    const totalSpent = expenses.reduce((acc, e) => acc + e.price, 0);
+    const remain = balance - totalSpent;
+    const el = document.getElementById('balanceResult');
+    el.textContent = `현재 보유 금액: ${balance.toLocaleString()}원, 총 지출: ${totalSpent.toLocaleString()}원, 남은 금액: ${remain.toLocaleString()}원`;
+    el.style.color = remain >= 0 ? '#2e7d32' : '#d32f2f';
+  }
+
+  // 유사 사용자 평균 소비 비교 (임의 데이터)
+  function showComparison() {
+    if (!userInfo) {
+      alert('먼저 사용자 정보를 입력하고 저장하세요.');
+      return;
+    }
+    const { age, salary, household } = userInfo;
+    const baseMin = salary * 0.3;
+    const baseMax = salary * 0.5;
+    const adjust = household * 50000;
+    const avgMin = baseMin + adjust;
+    const avgMax = baseMax + adjust;
+    const totalSpent = expenses.reduce((a,e) => a+e.price, 0);
+
+    const container = document.getElementById('comparisonResult');
+    container.innerHTML = `
+      <p>사용자 월급: ${salary.toLocaleString()}원, 동거인 수: ${household}명</p>
+      <p>유사 사용자 평균 월 소비: ${avgMin.toLocaleString()}원 ~ ${avgMax.toLocaleString()}원</p>
+      <p>내 총 지출: <strong>${totalSpent.toLocaleString()}원</strong></p>
+      <p style="color:${totalSpent > avgMax ? '#d32f2f' : '#2e7d32'}">
+        ${totalSpent > avgMax ? '평균보다 지출이 많아요. 소비를 줄여보세요.' : '소비가 평균 범위 내에 있습니다.'}
+      </p>
+    `;
+  }
+  window.showComparison = showComparison;
+
+  // 그룹 소비 공유
+  let groupExpenses = [];
+  function addGroupExpense() {
+    const name = document.getElementById('groupName').value.trim();
+    const expense = Number(document.getElementById('groupExpense').value);
+    if (!name || isNaN(expense) || expense < 0) {
+      alert('그룹 이름과 유효한 금액을 입력하세요.');
+      return;
+    }
+    groupExpenses.push({ name, expense });
+    updateGroupExpenseList();
+    document.getElementById('groupName').value = '';
+    document.getElementById('groupExpense').value = '';
+  }
+  window.addGroupExpense = addGroupExpense;
+
+  function updateGroupExpenseList() {
+    const list = document.getElementById('groupExpenseList');
+    list.innerHTML = '';
+    groupExpenses.forEach(({name, expense}) => {
+      const li = document.createElement('li');
+      li.textContent = `${name} 그룹: ${expense.toLocaleString()}원`;
+      list.appendChild(li);
+    });
+  }
+
+  // 챗봇 (Gemini API)
+  const chatbotMessages = document.getElementById('chatbotMessages');
+
+  function appendChatMessage(sender, text) {
+    const div = document.createElement('div');
+    div.classList.add('message', sender);
+    div.textContent = text;
+    chatbotMessages.appendChild(div);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight; // Auto-scroll to bottom
+    return div; // Return the element for potential modification (e.g., "Thinking..." message)
+  }
+
+  async function getGeminiChatReply(userMessage) {
+    if (!model) {
+        // Enhanced message if API key is a known placeholder
+        if (API_KEY === PLACEHOLDER_API_KEY_VALUE || API_KEY.trim() === "" || API_KEY.toLowerCase().includes("your_api_key") || API_KEY.length < 30) {
+             return "죄송합니다, AI 모델을 사용하려면 유효한 Google AI API 키를 코드에 설정해야 합니다. 현재 설정된 키는 플레이스홀더입니다.";
+        }
+        return "죄송합니다, AI 모델이 준비되지 않았습니다. API 키 설정 또는 네트워크 연결을 확인해주세요.";
+    }
+    // Construct a more detailed prompt for better AI guidance
+    const prompt = `
+        You are a friendly and helpful AI financial advisor for a household budgeting app.
+        Your goal is to assist users with their financial questions and provide tips on using the app.
+        The app has the following features:
+        1.  User Info: Users can input their age, salary, and household size.
+        2.  Receipt Upload: Users can upload receipt images (currently simulated) and manually enter store name, price, and payment card to log expenses.
+        3.  Balance Management: Users can set their current balance and see their total spending and remaining amount.
+        4.  Comparison: Users can compare their spending with an estimated average for similar users.
+        5.  Group Expenses: Users can share and track group expenses.
+        6.  Chatbot (this is you!): Users can ask financial questions.
+        7.  Coupons: A list of available coupons and deals.
+
+        User's question: "${userMessage}"
+
+        Please respond in Korean. Be concise and helpful.
+        If the question is about app functionality, guide them based on the features listed above.
+        For example:
+        - If asked about logging expenses: "영수증 정보를 '2. 영수증 사진 업로드 및 AI 판별' 섹션에 입력하고 '가계부에 기록' 버튼을 누르시면 됩니다."
+        - If asked about checking spending: "소비 내역은 '3. 보유 금액 및 소비 내역 관리' 섹션의 표에서 확인하실 수 있어요."
+        - If asked about saving money: Offer general tips like tracking expenses, reviewing subscriptions, setting a budget, etc.
+        - If asked about coupons: "앱 하단의 '7. 사용 가능한 쿠폰 및 행사 정리' 섹션에서 확인해보세요."
+    `;
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        return text;
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        if (error.message && error.message.includes("API key not valid")) { // Check if error.message exists
+            return "죄송합니다. API 키가 유효하지 않습니다. 관리자에게 문의하거나 API 키를 확인해주세요.";
+        }
+        return "죄송합니다, AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    }
+  }
+
+  async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const userText = input.value.trim();
+    if (!userText) return;
+
+    appendChatMessage('user', userText);
+    input.value = '';
+
+    const thinkingMessageElement = appendChatMessage('bot', 'AI가 생각 중입니다...');
+
+    try {
+        const botReply = await getGeminiChatReply(userText);
+        thinkingMessageElement.textContent = botReply; // Update the "thinking" message with the actual reply
+    } catch (error) {
+        // Error is already logged in getGeminiChatReply, update message if needed
+        thinkingMessageElement.textContent = 'AI 응답 처리 중 문제가 발생했습니다.';
+    }
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight; // Ensure scroll after update
+  }
+  window.sendChat = sendChat;
+  
+  // Initialize Chatbot with a greeting
+  function initializeChatbot() {
+    appendChatMessage('bot', '안녕하세요! AI 가계부 상담사입니다. 재정 관련 질문이나 앱 사용법에 대해 물어보세요. (예: 절약 팁 알려줘)');
+  }
+
+
+  // 쿠폰/행사 리스트 + 필터링
+  const coupons = [
+    {name:'스타벅스 10% 할인 쿠폰', description:'2025년 12월 31일까지 사용 가능, 음료 전 품목 10% 할인'},
+    {name:'롯데마트 주말 행사', description:'주말 20% 할인 행사, 2025년 6월 1일 ~ 6월 7일'},
+    {name:'신한카드 캐시백 이벤트', description:'5월 한달간 신한카드로 결제 시 3% 캐시백'},
+    {name:'삼성카드 영화 할인', description:'영화 예매 시 최대 5천원 할인, 월 2회 사용 가능'},
+    {name:'쿠팡 로켓배송 쿠폰', description:'첫 주문 시 무료 배송 쿠폰 제공'},
+  ];
+  function displayCoupons(filter = '') {
+    const listDiv = document.getElementById('couponList');
+    listDiv.innerHTML = '';
+    const filtered = coupons.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()) || c.description.toLowerCase().includes(filter.toLowerCase()));
+    if (filtered.length === 0) {
+      listDiv.textContent = '검색 결과가 없습니다.';
+      return;
+    }
+    filtered.forEach(c => {
+      const div = document.createElement('div');
+      div.classList.add('coupon');
+      div.innerHTML = `<strong>${c.name}</strong><br><small>${c.description}</small>`;
+      listDiv.appendChild(div);
+    });
+  }
+  function filterCoupons() {
+    const val = document.getElementById('couponFilter').value.trim();
+    displayCoupons(val);
+  }
+  window.filterCoupons = filterCoupons;
+
+  // Initial calls
+  displayCoupons();
+  initializeChatbot();
+
+</script>
+
 </body>
 </html>
